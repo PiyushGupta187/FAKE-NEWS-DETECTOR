@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake News Detection</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+        }
+
+        .container {
+            width: 450px;
+            padding: 40px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            color: white;
+        }
+
+        .container h1 {
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .container p {
+            margin-bottom: 25px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        textarea {
+            width: 100%;
+            height: 140px;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            resize: none;
+            font-size: 14px;
+            outline: none;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(45deg, #ff7a18, #ffb347);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Result box */
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .result.fake {
+            background: rgba(255, 80, 80, 0.4);
+        }
+
+        .result.real {
+            background: rgba(80, 220, 120, 0.4);
+        }
+
+        .result-label {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        /* Confidence bar */
+        .confidence-section {
+            margin-top: 8px;
+        }
+
+        .confidence-label {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-bottom: 6px;
+        }
+
+        .confidence-bar-bg {
+            width: 100%;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .confidence-bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.6s ease;
+            background: white;
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>📰 Fake News Detector</h1>
+        <p>Paste a news headline or article to check if it is real or fake</p>
+
+        <textarea id="newsInput" placeholder="Enter news text here..."></textarea>
+
+        <button id="detectBtn" onclick="checkNews()">Detect News</button>
+
+        <div class="result" id="result">
+            <div class="result-label">Result will appear here</div>
+        </div>
+
+        <div class="footer">
+            AI Powered News Verification
+        </div>
+
+    </div>
+
+    <script>
+        async function checkNews() {
+            const text = document.getElementById('newsInput').value.trim();
+            const resultDiv = document.getElementById('result');
+            const btn = document.getElementById('detectBtn');
+
+            // Validate input
+            if (!text) {
+                resultDiv.className = 'result';
+                resultDiv.innerHTML = '<div class="result-label">⚠️ Please enter some news text first!</div>';
+                return;
+            }
+
+            // Show loading state
+            btn.disabled = true;
+            btn.textContent = 'Analyzing...';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '<div class="result-label">🔍 Checking...</div>';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server error: ' + response.status);
+                }
+
+                const data = await response.json();
+                const confidence = data.confidence;
+
+                if (data.result === 'FAKE') {
+                    resultDiv.className = 'result fake';
+                    resultDiv.innerHTML = `
+                        <div class="result-label">🚨 FAKE NEWS Detected!</div>
+                        <div class="confidence-section">
+                            <div class="confidence-label">Confidence: ${confidence}%</div>
+                            <div class="confidence-bar-bg">
+                                <div class="confidence-bar-fill" style="width: ${confidence}%; background: rgba(255,255,255,0.85);"></div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.className = 'result real';
+                    resultDiv.innerHTML = `
+                        <div class="result-label">✅ This News Looks REAL</div>
+                        <div class="confidence-section">
+                            <div class="confidence-label">Confidence: ${confidence}%</div>
+                            <div class="confidence-bar-bg">
+                                <div class="confidence-bar-fill" style="width: ${confidence}%; background: rgba(255,255,255,0.85);"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                resultDiv.className = 'result';
+                resultDiv.innerHTML = '<div class="result-label">❌ Error: Could not connect to server. Is Flask running?</div>';
+                console.error(error);
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Detect News';
+        }
+    </script>
+
+</body>
+
+</html>
